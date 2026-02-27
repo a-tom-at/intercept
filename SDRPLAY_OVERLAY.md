@@ -126,16 +126,25 @@ Default ADS-B gain set to 49 (from 40):
 
 ---
 
-## Patch 8 — `static/js/modes/listening-post.js`: sdr_type sent in scanner API calls
+## Patch 8 — `static/js/modes/waterfall.js`: sdr_type + serial in audio start API call
 
-**What changed:** `startScanner()` and `_startDirectListenInternal()` both include `sdr_type: getSelectedSDRTypeForScanner()` in their POST bodies.
+**What changed:** `_selectedDevice()` looks up `serial` from the `_devices[]` array and returns it alongside `sdrType`/`deviceIndex`. The `_requestAudioStart()` POST body includes both `sdr_type` and `serial`.
 
-**Watch for:** Upstream modifying the scanner start API payload and removing or overriding this field.
+> **Upstream note:** Upstream renamed the mode from `listening` → `waterfall` and replaced `listening-post.js` with `waterfall.js` (blueprint prefix changed from `/listening` → `/receiver`). The old `listening-post.js` is preserved in git history but no longer active.
+
+**Watch for:** Upstream modifying `_selectedDevice()` or the `_requestAudioStart()` POST body — ensure `serial` is still included.
 
 ```javascript
+// _selectedDevice() — must look up serial from _devices[]:
+const deviceObj = _devices.find((d) => d.sdr_type === sdrType && d.index === deviceIndex);
+const serial = deviceObj?.serial || 'N/A';
+return { sdrType, deviceIndex, serial };
+
+// _requestAudioStart() body — must include serial:
 body: JSON.stringify({
     // ... other fields ...
-    sdr_type: getSelectedSDRTypeForScanner(),  // Must be present
+    sdr_type: device.sdrType,   // Must be present
+    serial: device.serial,       // Must be present (SDRPlay device selection)
 })
 ```
 
@@ -161,6 +170,6 @@ rssi = advertisement_data.rssi if hasattr(advertisement_data, 'rssi') else getat
 [ ] utils/sdr/__init__.py   — Patch 5: SDRFactory.register(SDRType.SDRPLAY, ...)
 [ ] routes/listening_post.py— Patch 6: use_soapy branch + rx_fm pkill
 [ ] templates/index.html    — Patch 7: dropdown option + sdrCapabilities + gain default
-[ ] static/js/modes/listening-post.js — Patch 8: sdr_type in POST bodies
+[ ] static/js/modes/waterfall.js      — Patch 8: sdr_type + serial in _requestAudioStart() POST body
 [ ] routes/bluetooth.py     — Patch 9: rssi fallback
 ```
