@@ -16,16 +16,13 @@ Complete feature list for all modules.
 - **Doorbells, remotes, and IoT devices**
 - **Smart meters** and utility monitors
 
-## AIS Vessel Tracking
+## Sub-GHz Analyzer
 
-- **Real-time vessel tracking** via AIS-catcher on 161.975/162.025 MHz
-- **Full-screen dashboard** - dedicated popout with interactive map
-- **Interactive Leaflet map** with OpenStreetMap tiles (dark-themed)
-- **Vessel details popup** - name, MMSI, callsign, destination, ETA
-- **Navigation data** - speed, course, heading, rate of turn
-- **Ship type classification** - cargo, tanker, passenger, fishing, etc.
-- **Vessel dimensions** - length, width, draught
-- **Multi-SDR support** - RTL-SDR, HackRF, LimeSDR, Airspy, SDRplay
+- **HackRF-based** signal capture and analysis for 300-928 MHz ISM bands
+- **Protocol decoding** - identify and decode common Sub-GHz protocols
+- **Signal replay/transmit** capabilities for authorized testing
+- **Wideband spectrum analysis** with real-time visualization
+- **I/Q capture** - record raw samples for offline analysis
 
 ## Spy Stations (Number Stations)
 
@@ -84,6 +81,95 @@ Digital Selective Calling (DSC) monitoring on the international maritime distres
 - **SDR conflict detection** - Prevents device collisions with AIS tracking
 - **Alert summary** - Dashboard counts for unacknowledged distress/urgency
 
+## ACARS Messaging
+
+- **Real-time ACARS decoding** via acarsdec
+- **Aircraft datalink messages** - operational, weather, and position reports
+- **Multi-SDR support** - RTL-SDR, HackRF, LimeSDR, Airspy, SDRplay
+- **Message filtering** - filter by message type, flight, or registration
+
+## VDL2 (VHF Data Link Mode 2)
+
+- **Real-time VDL2 decoding** via dumpvdl2 on standard VDL2 frequencies
+- **ACARS-over-AVLC** message capture with full frame parsing
+- **Signal analysis** - frequency, signal level, noise level, SNR, burst length
+- **AVLC frame details** - source/destination addresses, frame type, command/response
+- **Raw JSON inspection** - expandable raw message data for each frame
+- **Multi-frequency monitoring** - simultaneous reception on multiple VDL2 channels
+- **Multi-SDR support** - RTL-SDR, HackRF, LimeSDR, Airspy, SDRplay
+- **CSV/JSON export** - export captured messages for offline analysis
+- **Integrated with ADS-B dashboard** - VDL2 messages linked to aircraft tracking
+
+## Listening Post
+
+- **Wideband frequency scanning** via rtl_power sweep with SNR filtering
+- **Real-time audio monitoring** with FM and SSB demodulation
+- **Cross-module frequency routing** from scanner to decoders
+- **Customizable frequency presets** and band bookmarks
+- **Multi-SDR support** - RTL-SDR, LimeSDR, HackRF, Airspy, SDRplay
+
+## Weather Satellites
+
+- **NOAA APT** and **Meteor LRPT** image decoding via SatDump
+- **Auto-scheduler** with pass prediction and automatic capture
+- **Polar plot** - real-time satellite position on azimuth/elevation display
+- **Ground track map** - orbit path with past/future trajectory
+- **Image gallery** with timestamped decoded imagery
+
+## WebSDR
+
+- **KiwiSDR network integration** for remote HF/shortwave listening
+- **WebSocket audio streaming** from remote receivers
+- **Receiver discovery** with automatic caching
+- **Frequency tuning** with band presets
+
+## ISS SSTV
+
+- **ISS SSTV image reception** on 145.800 MHz FM during special event transmissions
+- **Real-time ISS tracking** with world map and pass predictions
+- **Doppler correction** - optional lat/lon input for real-time frequency shift compensation
+- **Next pass countdown** - time remaining until ISS is overhead
+- **Image gallery** with timestamped decoded imagery
+- **TLE updates** - fetch latest ISS orbital elements
+- **Multi-SDR support** - RTL-SDR, HackRF, LimeSDR, Airspy, SDRplay
+
+## HF SSTV
+
+- **Terrestrial SSTV decoding** across HF (80m-10m), VHF (6m, 2m), and UHF (70cm) bands
+- **Predefined frequency lookup** for 13 active SSTV calling frequencies
+- **Auto-modulation selection** - frequency table maps to correct mode (USB, LSB, FM)
+- **Image gallery** with decoded transmissions
+- **Common modes supported** - PD120, PD180, Martin1, Scottie1, Robot36
+
+## APRS
+
+- **Amateur packet radio** position reports and telemetry via direwolf
+- **Region-specific frequencies** - 144.390 MHz (North America), 144.800 MHz (Europe), and more
+- **Real-time position tracking** on interactive map
+- **Message and telemetry display** from APRS network
+
+## Utility Meter Reading
+
+- **Smart meter monitoring** via rtl_amr for electric, gas, and water meters
+- **Real-time JSON output** with meter ID, consumption, and signal data
+- **Multiple meter protocol support** via rtl_tcp integration
+
+## Space Weather
+
+- **Real-time solar indices** - Solar Flux Index (SFI), Kp index, A-index, sunspot number
+- **NOAA Space Weather Scales** - Geomagnetic storms (G), solar radiation (S), radio blackouts (R)
+- **HF band conditions** - Day/night propagation from HamQSL for 80m through 10m bands
+- **Solar wind monitoring** - Speed, density, and IMF Bz from DSCOVR satellite
+- **X-ray flux chart** - GOES X-ray data with flare class scale (A/B/C/M/X)
+- **Flare probability** - 1-day and 3-day C/M/X-class flare forecasts
+- **Solar imagery** - NASA SDO 193A, 304A, and magnetogram images
+- **D-RAP absorption maps** - HF radio absorption at 5-30 MHz frequency bands
+- **Aurora forecast** - OVATION aurora oval visualization
+- **SWPC alerts** - Real-time space weather alerts and warnings
+- **Active solar regions** - Current sunspot region data with location and area
+- **Auto-refresh** - 5-minute polling with manual refresh option
+- **No SDR required** - Data fetched from NOAA SWPC, NASA SDO, and HamQSL public APIs
+
 ## Satellite Tracking
 
 - **Full-screen dashboard** - dedicated popout with polar plot and ground track
@@ -130,6 +216,52 @@ Digital Selective Calling (DSC) monitoring on the international maritime distres
 - **Manufacturer lookup** via OUI database and Bluetooth Company IDs
 - **Proximity radar** visualization
 - **Device type breakdown** chart
+
+## BT Locate (SAR Bluetooth Device Location)
+
+Search and rescue Bluetooth device location with GPS-tagged signal trail mapping.
+
+### Core Features
+- **Target tracking** - Locate devices by MAC address, name pattern, or IRK (Identity Resolving Key)
+- **RPA resolution** - Resolve BLE Resolvable Private Addresses using IRK for tracking devices with randomized addresses
+- **IRK auto-detection** - Extract IRKs from paired devices on macOS and Linux
+- **GPS-tagged signal trail** - Every detection is tagged with GPS coordinates for trail mapping
+- **Proximity bands** - IMMEDIATE (<1m), NEAR (1-5m), FAR (>5m) with color-coded HUD
+- **RSSI history chart** - Real-time signal strength sparkline for trend analysis
+- **Distance estimation** - Log-distance path loss model with environment presets
+- **Audio proximity alerts** - Web Audio API tones that increase in pitch as signal strengthens
+- **Hand-off from Bluetooth mode** - One-click transfer of a device from BT scanner to BT Locate
+
+### Environment Presets
+- **Open Field** (n=2.0) - Free space path loss
+- **Outdoor** (n=2.2) - Typical outdoor environment
+- **Indoor** (n=3.0) - Indoor with walls and obstacles
+
+### Map & Trail
+- Interactive Leaflet map with GPS trail visualization
+- Trail points color-coded by proximity band
+- Polyline connecting detection points for path visualization
+- Supports user-configured tile providers
+
+### Requirements
+- Bluetooth adapter (built-in or USB)
+- GPS receiver (optional, falls back to manual coordinates)
+
+## GPS Mode
+
+Real-time GPS position tracking with live map visualization.
+
+### Features
+- **Live position tracking** - Real-time latitude, longitude, altitude display
+- **Interactive map** - Current position on Leaflet map with track history
+- **Speed and heading** - Real-time speed (km/h) and compass heading
+- **Satellite info** - Number of satellites in view and fix quality
+- **Track recording** - Record GPS tracks with export capability
+- **Accuracy display** - Horizontal and vertical position accuracy (EPX/EPY)
+
+### Requirements
+- USB GPS receiver connected via gpsd
+- gpsd daemon running (`sudo gpsd /dev/ttyUSB0 -F /var/run/gpsd.sock`)
 
 ## TSCM Counter-Surveillance Mode
 

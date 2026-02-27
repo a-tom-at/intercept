@@ -229,7 +229,7 @@ def start_scan():
     rssi_threshold = data.get('rssi_threshold', -100)
 
     # Validate mode
-    valid_modes = ('auto', 'dbus', 'bleak', 'hcitool', 'bluetoothctl')
+    valid_modes = ('auto', 'dbus', 'bleak', 'hcitool', 'bluetoothctl', 'ubertooth')
     if mode not in valid_modes:
         return jsonify({'error': f'Invalid mode. Must be one of: {valid_modes}'}), 400
 
@@ -250,8 +250,8 @@ def start_scan():
             logger.debug(f"BT seen-before update failed: {e}")
 
     # Setup seen-before callback
-    if scanner._on_device_updated is None:
-        scanner._on_device_updated = _handle_seen_before
+    if _handle_seen_before not in scanner._on_device_updated_callbacks:
+        scanner.add_device_callback(_handle_seen_before)
 
     # Ensure cache is initialized
     with _bt_seen_lock:
