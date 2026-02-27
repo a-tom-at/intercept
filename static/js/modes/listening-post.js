@@ -143,6 +143,23 @@ function getSelectedSDRTypeForScanner() {
     return select?.value || 'rtlsdr';
 }
 
+/**
+ * Get selected device serial for SDR backends that require explicit serial selection.
+ */
+function getSelectedDeviceSerialForScanner() {
+    const device = getSelectedDevice();
+    const sdrType = getSelectedSDRTypeForScanner();
+    const list = (typeof currentDeviceList !== 'undefined' && Array.isArray(currentDeviceList))
+        ? currentDeviceList
+        : [];
+
+    const match = list.find(d =>
+        parseInt(d.index, 10) === device && (d.sdr_type || 'rtlsdr') === sdrType
+    );
+
+    return (match && match.serial) ? match.serial : 'N/A';
+}
+
 // ============== SCANNER PRESETS ==============
 
 function applyScannerPreset() {
@@ -244,6 +261,8 @@ function startScanner() {
             gain: gain,
             dwell_time: dwell,
             device: device,
+            sdr_type: getSelectedSDRTypeForScanner(),
+            serial: getSelectedDeviceSerialForScanner(),
             bias_t: typeof getBiasTEnabled === 'function' ? getBiasTEnabled() : false,
             snr_threshold: snrThreshold,
             scan_method: 'power'
@@ -2304,6 +2323,7 @@ async function _startDirectListenInternal() {
                 gain: gain,
                 device: device,
                 sdr_type: sdrType,
+                serial: getSelectedDeviceSerialForScanner(),
                 bias_t: biasT
             })
         });

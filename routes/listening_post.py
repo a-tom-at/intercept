@@ -62,6 +62,7 @@ scanner_config = {
     'dwell_time': 10.0,  # Seconds to stay on active frequency
     'scan_delay': 0.1,  # Seconds between frequency hops (keep low for fast scanning)
     'device': 0,
+    'serial': 'N/A',
     'gain': 40,
     'bias_t': False,  # Bias-T power for external LNA
     'sdr_type': 'rtlsdr',  # SDR type: rtlsdr, hackrf, airspy, limesdr, sdrplay
@@ -152,13 +153,31 @@ def scanner_loop():
     add_activity_log('scanner_start', scanner_config['start_freq'],
                      f"Scanning {scanner_config['start_freq']}-{scanner_config['end_freq']} MHz")
 
-    rtl_fm_path = find_rtl_fm()
+    # Determine SDR type and find appropriate demod tool
+    sdr_type_str = scanner_config.get('sdr_type', 'rtlsdr')
+    try:
+        sdr_type = SDRType(sdr_type_str)
+    except ValueError:
+        sdr_type = SDRType.RTL_SDR
 
-    if not rtl_fm_path:
-        logger.error("rtl_fm not found")
-        add_activity_log('error', 0, 'rtl_fm not found')
-        scanner_running = False
-        return
+    use_soapy = sdr_type != SDRType.RTL_SDR
+
+    if use_soapy:
+        rx_fm_path = find_rx_fm()
+        if not rx_fm_path:
+            logger.error(f"rx_fm not found - required for {sdr_type.value}")
+            add_activity_log('error', 0, f'rx_fm not found for {sdr_type.value}')
+            scanner_running = False
+            return
+        sdr_tool_path = rx_fm_path
+    else:
+        rtl_fm_path = find_rtl_fm()
+        if not rtl_fm_path:
+            logger.error("rtl_fm not found")
+            add_activity_log('error', 0, 'rtl_fm not found')
+            scanner_running = False
+            return
+        sdr_tool_path = rtl_fm_path
 
     current_freq = scanner_config['start_freq']
     last_signal_time = 0
@@ -177,6 +196,7 @@ def scanner_loop():
             mod = scanner_config['modulation']
             gain = scanner_config['gain']
             device = scanner_config['device']
+            serial = scanner_config.get('serial', 'N/A')
 
             scanner_current_freq = current_freq
 
@@ -206,24 +226,43 @@ def scanner_loop():
                 sample_rate = 24000
                 resample_rate = 24000
 
-            # Don't use squelch in rtl_fm - we want to analyze raw audio
-            rtl_cmd = [
-                rtl_fm_path,
-                '-M', mod,
-                '-f', str(freq_hz),
-                '-s', str(sample_rate),
-                '-r', str(resample_rate),
-                '-g', str(gain),
-                '-d', str(device),
-            ]
-            # Add bias-t flag if enabled (for external LNA power)
-            if scanner_config.get('bias_t', False):
-                rtl_cmd.append('-T')
+            # Build SDR command for current hardware
+            if use_soapy:
+                # Use rx_fm via SDR abstraction for HackRF/Airspy/LimeSDR/SDRplay
+                device_obj = SDRFactory.create_default_device(sdr_type, index=device, serial=serial)
+                builder = SDRFactory.get_builder(sdr_type)
+                sdr_cmd = builder.build_fm_demod_command(
+                    device=device_obj,
+                    frequency_mhz=current_freq,
+                    sample_rate=resample_rate,
+                    gain=float(gain),
+                    modulation=mod,
+                    squelch=None,  # No squelch for scanner analysis path
+                    bias_t=scanner_config.get('bias_t', False)
+                )
+                # Ensure absolute path we detected is used
+                sdr_cmd[0] = sdr_tool_path
+                # Scanner reads stdout directly; remove explicit stdout marker if present
+                if '-' in sdr_cmd:
+                    sdr_cmd.remove('-')
+            else:
+                # Use rtl_fm for RTL-SDR
+                sdr_cmd = [
+                    sdr_tool_path,
+                    '-M', mod,
+                    '-f', str(freq_hz),
+                    '-s', str(sample_rate),
+                    '-r', str(resample_rate),
+                    '-g', str(gain),
+                    '-d', str(device),
+                ]
+                if scanner_config.get('bias_t', False):
+                    sdr_cmd.append('-T')
 
             try:
-                # Start rtl_fm
-                rtl_proc = subprocess.Popen(
-                    rtl_cmd,
+                # Start SDR demod process
+                sdr_proc = subprocess.Popen(
+                    sdr_cmd,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.DEVNULL
                 )
@@ -236,17 +275,17 @@ def scanner_loop():
                 bytes_needed = int(resample_rate * 2 * sample_duration)  # 16-bit mono
 
                 while len(audio_data) < bytes_needed and scanner_running:
-                    chunk = rtl_proc.stdout.read(4096)
+                    chunk = sdr_proc.stdout.read(4096)
                     if not chunk:
                         break
                     audio_data += chunk
 
-                # Clean up rtl_fm
-                rtl_proc.terminate()
+                # Clean up demod process
+                sdr_proc.terminate()
                 try:
-                    rtl_proc.wait(timeout=1)
+                    sdr_proc.wait(timeout=1)
                 except subprocess.TimeoutExpired:
-                    rtl_proc.kill()
+                    sdr_proc.kill()
 
                 # Analyze audio level
                 audio_detected = False
@@ -701,7 +740,11 @@ def _start_audio_stream(frequency: float, modulation: str):
                 return
 
             # Create device and get command builder
-            device = SDRFactory.create_default_device(sdr_type, index=scanner_config['device'])
+            device = SDRFactory.create_default_device(
+                sdr_type,
+                index=scanner_config['device'],
+                serial=scanner_config.get('serial', 'N/A'),
+            )
             builder = SDRFactory.get_builder(sdr_type)
 
             # Build FM demod command
@@ -964,6 +1007,7 @@ def start_scanner() -> Response:
         scanner_config['dwell_time'] = float(data.get('dwell_time', 3.0))
         scanner_config['scan_delay'] = float(data.get('scan_delay', 0.5))
         scanner_config['device'] = int(data.get('device', 0))
+        scanner_config['serial'] = str(data.get('serial', 'N/A'))
         scanner_config['gain'] = int(data.get('gain', 40))
         scanner_config['bias_t'] = bool(data.get('bias_t', False))
         scanner_config['sdr_type'] = str(data.get('sdr_type', 'rtlsdr')).lower()
@@ -1280,6 +1324,7 @@ def start_audio() -> Response:
         gain = int(data.get('gain', 40))
         device = int(data.get('device', 0))
         sdr_type = str(data.get('sdr_type', 'rtlsdr')).lower()
+        serial = str(data.get('serial', 'N/A'))
     except (ValueError, TypeError) as e:
         return jsonify({
             'status': 'error',
@@ -1304,6 +1349,7 @@ def start_audio() -> Response:
     scanner_config['gain'] = gain
     scanner_config['device'] = device
     scanner_config['sdr_type'] = sdr_type
+    scanner_config['serial'] = serial
 
     # Stop waterfall if it's using the same SDR (SSE path)
     if waterfall_running and waterfall_active_device == device:

@@ -54,6 +54,7 @@ class SDRFactory:
         SDRType.AIRSPY: AirspyCommandBuilder,
         SDRType.SDRPLAY: SDRPlayCommandBuilder,
     }
+    _last_detected_devices: list[SDRDevice] = []
 
     @classmethod
     def get_builder(cls, sdr_type: SDRType) -> CommandBuilder:
@@ -95,7 +96,10 @@ class SDRFactory:
         Returns:
             List of detected SDR devices
         """
-        return detect_all_devices()
+        devices = detect_all_devices()
+        if devices:
+            cls._last_detected_devices = devices
+        return devices
 
     @classmethod
     def get_supported_types(cls) -> list[SDRType]:
@@ -166,6 +170,21 @@ class SDRFactory:
         Returns:
             SDRDevice with default capabilities for the type
         """
+        # If serial wasn't provided, prefer detected device metadata so we keep
+        # hardware-specific identifiers (for example SDRplay serial for rx_fm/readsb).
+        if not serial or serial == 'N/A':
+            for detected in cls._last_detected_devices:
+                if detected.sdr_type == sdr_type and detected.index == index:
+                    return detected
+
+            try:
+                for detected in cls.detect_devices():
+                    if detected.sdr_type == sdr_type and detected.index == index:
+                        return detected
+            except Exception:
+                # Fall back to synthesized device metadata below.
+                pass
+
         caps = cls.get_capabilities(sdr_type)
         return SDRDevice(
             sdr_type=sdr_type,

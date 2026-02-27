@@ -34,6 +34,18 @@ class SDRPlayCommandBuilder(CommandBuilder):
             return f'driver=sdrplay,serial={device.serial}'
         return 'driver=sdrplay'
 
+    def _build_readsb_selector(self, device: SDRDevice) -> str:
+        """
+        Build readsb-compatible Soapy selector for SDRPlay.
+
+        Some readsb builds fail to match SDRplay devices when multiple key/value
+        pairs are provided (for example driver + serial). A serial-only selector
+        is the most reliable when serial is available.
+        """
+        if device.serial and device.serial != 'N/A':
+            return f'serial={device.serial}'
+        return 'driver=sdrplay'
+
     def build_fm_demod_command(
         self,
         device: SDRDevice,
@@ -52,16 +64,40 @@ class SDRPlayCommandBuilder(CommandBuilder):
         """
         device_str = self._build_device_string(device)
 
+        # For WFM (broadcast FM), use higher sample rate for full bandwidth
+        # SDRplay supported rates: 62500, 96000, 125000, 192000, 250000, 384000, 500000...
+        if modulation == 'wfm':
+            internal_sample_rate = 192000  # Closest supported rate to 200kHz for WFM
+            resample_rate = sample_rate    # Output at requested rate (32000)
+        else:
+            internal_sample_rate = sample_rate
+            resample_rate = None
+
         cmd = [
             'rx_fm',
             '-d', device_str,
             '-f', f'{frequency_mhz}M',
             '-M', modulation,
-            '-s', str(sample_rate),
+            '-s', str(internal_sample_rate),
         ]
 
-        if gain is not None and gain > 0:
-            cmd.extend(['-g', f'IFGR={int(gain)}'])
+        # Add resample if needed
+        if resample_rate and resample_rate != internal_sample_rate:
+            cmd.extend(['-r', str(resample_rate)])
+
+        # For WFM (broadcast FM), use de-emphasis for better quality
+        # Note: -o oversampling is buggy with SoapySDR, so we skip it
+        if modulation == 'wfm':
+            cmd.extend(['-E', 'deemp'])   # De-emphasis filter (removes high-freq hiss)
+            cmd.extend(['-A', 'fast'])    # Fast AGC for broadcast
+            # Don't set manual gain for WFM - AGC handles it
+        elif gain is not None and gain >= 0:
+            # IFGR is gain REDUCTION (20-59), so invert user's gain setting
+            # User gain 0 = minimum sensitivity = IFGR 59
+            # User gain 59 = maximum sensitivity = IFGR 20
+            ifgr = int(59 - (gain * 39 / 59))
+            ifgr = max(20, min(59, ifgr))
+            cmd.extend(['-g', f'IFGR={ifgr}'])
 
         if squelch is not None and squelch > 0:
             cmd.extend(['-l', str(squelch)])
@@ -85,13 +121,15 @@ class SDRPlayCommandBuilder(CommandBuilder):
 
         Uses readsb which has better SoapySDR support.
         """
-        device_str = self._build_device_string(device)
+        device_str = self._build_readsb_selector(device)
 
         cmd = [
             'readsb',
             '--net',
+            '--net-sbs-port=30003',  # Required - readsb defaults to 0 (disabled)
             '--device-type', 'soapysdr',
-            '--device', device_str,
+            f'--soapy-device={device_str}',
+            '--soapy-enable-agc',
             '--quiet'
         ]
 
