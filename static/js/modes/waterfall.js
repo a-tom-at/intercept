@@ -2209,10 +2209,12 @@ const Waterfall = (function () {
     function _selectedDevice() {
         const raw = document.getElementById('wfDevice')?.value || 'rtlsdr:0';
         const parts = raw.includes(':') ? raw.split(':') : ['rtlsdr', '0'];
-        return {
-            sdrType: parts[0] || 'rtlsdr',
-            deviceIndex: parseInt(parts[1], 10) || 0,
-        };
+        const sdrType = parts[0] || 'rtlsdr';
+        const deviceIndex = parseInt(parts[1], 10) || 0;
+        // SDRPlay RSP1B patch: include serial so backend can select the correct device
+        const deviceObj = _devices.find((d) => d.sdr_type === sdrType && d.index === deviceIndex);
+        const serial = deviceObj?.serial || 'N/A';
+        return { sdrType, deviceIndex, serial };
     }
 
     function _waterfallRequestConfig() {
@@ -2716,6 +2718,7 @@ const Waterfall = (function () {
                 gain,
                 device: device.deviceIndex,
                 sdr_type: device.sdrType,
+                serial: device.serial,
                 bias_t: biasT,
                 request_token: requestToken,
             }),
